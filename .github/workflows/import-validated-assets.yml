@@ -1,0 +1,33 @@
+name: Import validated release assets
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft release tag
+        required: true
+        type: string
+      asset_group:
+        description: Validated desktop artifact group
+        required: true
+        type: choice
+        options: [windows, linux]
+      artifact_url:
+        description: Short-lived GitHub Actions artifact download URL
+        required: true
+        type: string
+      artifact_sha256:
+        description: SHA-256 reported by GitHub Actions for the complete ZIP
+        required: true
+        type: string
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and import artifacts into the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/import-validated-assets.py
