@@ -53,7 +53,10 @@ def github(path, method="GET", data=None, content_type="application/json"):
     except urllib.error.HTTPError as error:
         raise RuntimeError(f"GitHub {method} failed with HTTP {error.code}") from None
 
-release = github(f"/repos/{REPOSITORY}/releases/tags/{tag}")
+matches = [item for item in github(f"/repos/{REPOSITORY}/releases?per_page=100") if item["tag_name"] == tag]
+if len(matches) != 1:
+    raise SystemExit("Expected exactly one matching draft release")
+release = matches[0]
 if not release["draft"] or release["tag_name"] != tag:
     raise SystemExit("Only an existing draft release can receive artifacts")
 existing = {asset["name"]: asset for asset in release["assets"]}
