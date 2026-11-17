@@ -60,7 +60,7 @@ function validateGates(files, platform) {
       assert(events.filter(e => e.type === 'test:pass' && String(e.file || '').endsWith('dm-prompt-focus-ownership-browser.test.mjs')).length === 5);
       for (const [file, count] of Object.entries({ 'desktop-mic-processing-resume': 12,
         'livekit-microphone-settings-refresh': 8, 'private-call-microphone-readiness-status': 4,
-        'activity-card-artwork': 6 })) {
+        'activity-card-artwork': 8 })) {
         assert(inventory.selected.includes(`tests/${file}.test.mjs`));
         assert(events.filter(e => e.type === 'test:pass' && String(e.file || '').endsWith(`${file}.test.mjs`)).length === count);
       }
