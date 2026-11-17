@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing draft release tag
+        description: Target stable release tag
         required: true
         type: string
 permissions:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22.18.0
-      - name: Verify the updates repository and draft
+      - name: Verify the updates repository and stable release
         shell: node {0}
         env:
           GH_TOKEN: ${{ github.token }}
@@ -29,12 +29,15 @@ jobs:
           (async () => {
             const repo = process.env.GITHUB_REPOSITORY, tag = process.env.RELEASE_TAG;
             if (repo !== 'PinticeBTW/altara-updates' || !/^v\d+\.\d+\.\d+$/.test(tag || '')) throw Error('Invalid release context');
-            const result = await fetch(`https://api.github.com/repos/${repo}/releases/tags/${encodeURIComponent(tag)}`, {
+            const result = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
               headers: { Authorization: `Bearer ${process.env.GH_TOKEN}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
             });
-            if (!result.ok) throw Error('Draft verification failed');
+            if (!result.ok) throw Error('Release metadata verification failed');
             const release = await result.json();
-            if (release.draft !== true || release.prerelease !== false || release.tag_name !== tag) throw Error('Expected a stable draft release');
-            console.log(JSON.stringify({ repository: repo, tag, draft: true, platform: process.platform, architecture: process.arch }));
+            if (release.draft || release.prerelease || !release.published_at || !/^v\d+\.\d+\.\d+$/.test(release.tag_name || '')) throw Error('Expected a published stable release');
+            const current = release.tag_name.slice(1).split('.').map(Number), target = tag.slice(1).split('.').map(Number);
+            const next = target.findIndex((part, index) => part !== current[index]);
+            if (next < 0 || target[next] <= current[next]) throw Error('Target version must advance the stable release');
+            console.log(JSON.stringify({ repository: repo, target: tag, currentRelease: release.tag_name, platform: process.platform, architecture: process.arch }));
           })().catch(() => { console.error('Release context validation failed.'); process.exitCode = 1; });
 
