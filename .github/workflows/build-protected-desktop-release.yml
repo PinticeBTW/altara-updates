@@ -1,0 +1,172 @@
+name: Build protected desktop release
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Native platforms to validate and package
+        type: choice
+        options: [all, windows, linux]
+        default: all
+      source_commit:
+        description: Immutable approved application source commit
+        type: string
+        required: true
+        default: 089e6ce554aae34eabd216dc0ef642cc7764ab4e
+      source_asset_id:
+        description: Encrypted source asset ID in the protected source draft
+        type: string
+        required: true
+      source_cipher_sha256:
+        description: SHA-256 of the encrypted input
+        type: string
+        required: true
+      source_archive_sha256:
+        description: SHA-256 of the authenticated source archive
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protected-native-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-staging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      ALTARA_NATIVE_PLATFORM: ${{ inputs.platform == 'linux' && 'linux' || 'windows' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.18.0'
+      - name: Prepare isolated output staging
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/protected-native/prepare-staging.cjs
+
+  windows:
+    needs: prepare-staging
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'windows' }}
+    runs-on: windows-2022
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    env:
+      ALTARA_NATIVE_PLATFORM: windows
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.18.0'
+      - name: Authenticate and prepare protected source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALTARA_CI_KEY: ${{ secrets.ALTARA_RELEASE_178_TRANSPORT_KEY }}
+        run: node scripts/protected-native/bootstrap.cjs
+      - name: Protected native stage 1
+        run: node scripts/protected-native/run-private-step.cjs postgres
+      - name: Protected native stage 2
+        run: node scripts/protected-native/run-private-step.cjs postgres-location
+      - name: Protected native stage 3
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/protected-native/run-private-step.cjs historical-installer
+      - name: Protected native stage 4
+        run: node scripts/protected-native/run-private-step.cjs dependencies
+      - name: Protected native stage 5
+        run: node scripts/protected-native/run-private-step.cjs example-dependencies
+      - name: Protected native stage 6
+        run: node scripts/protected-native/run-private-step.cjs browser-fixtures
+      - name: Protected native stage 7
+        run: node scripts/protected-native/run-private-step.cjs native-prepack
+      - name: Protected native stage 8
+        run: node scripts/protected-native/run-private-step.cjs renderer-validation
+      - name: Protected native stage 9
+        run: node scripts/protected-native/run-private-step.cjs widget-network-validation
+      - name: Protected native stage 10
+        run: node scripts/protected-native/run-private-step.cjs baseline
+      - name: Protected native stage 11
+        run: node scripts/protected-native/run-private-step.cjs ui-evidence
+      - name: Protected native stage 12
+        run: node scripts/protected-native/run-private-step.cjs release-validation
+      - name: Protected native stage 13
+        run: node scripts/protected-native/run-private-step.cjs package
+      - name: Protected native stage 14
+        run: node scripts/protected-native/run-private-step.cjs checksums
+      - name: Retain validated packages and encrypted diagnostics
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALTARA_CI_KEY: ${{ secrets.ALTARA_RELEASE_178_TRANSPORT_KEY }}
+          ALTARA_JOB_STATUS: ${{ job.status }}
+        run: node scripts/protected-native/finish.cjs
+
+  linux:
+    needs: prepare-staging
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'linux' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    env:
+      ALTARA_NATIVE_PLATFORM: linux
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.18.0'
+      - name: Authenticate and prepare protected source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALTARA_CI_KEY: ${{ secrets.ALTARA_RELEASE_178_TRANSPORT_KEY }}
+        run: node scripts/protected-native/bootstrap.cjs
+      - name: Protected native stage 1
+        run: node scripts/protected-native/run-private-step.cjs postgres-location
+      - name: Protected native stage 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/protected-native/run-private-step.cjs historical-installer
+      - name: Protected native stage 3
+        run: node scripts/protected-native/run-private-step.cjs dependencies
+      - name: Protected native stage 4
+        run: node scripts/protected-native/run-private-step.cjs example-dependencies
+      - name: Protected native stage 5
+        run: node scripts/protected-native/run-private-step.cjs browser-fixtures
+      - name: Protected native stage 6
+        run: node scripts/protected-native/run-private-step.cjs sandbox
+      - name: Protected native stage 7
+        run: node scripts/protected-native/run-private-step.cjs baseline
+      - name: Protected native stage 8
+        run: node scripts/protected-native/run-private-step.cjs ui-evidence
+      - name: Protected native stage 9
+        run: node scripts/protected-native/run-private-step.cjs release-validation
+      - name: Protected native stage 10
+        run: node scripts/protected-native/run-private-step.cjs version
+      - name: Protected native stage 11
+        run: node scripts/protected-native/run-private-step.cjs package
+      - name: Protected native stage 12
+        run: node scripts/protected-native/run-private-step.cjs appimage-validation
+      - name: Protected native stage 13
+        run: node scripts/protected-native/run-private-step.cjs deb-validation
+      - name: Protected native stage 14
+        run: node scripts/protected-native/run-private-step.cjs portable-validation
+      - name: Retain validated packages and encrypted diagnostics
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALTARA_CI_KEY: ${{ secrets.ALTARA_RELEASE_178_TRANSPORT_KEY }}
+          ALTARA_JOB_STATUS: ${{ job.status }}
+        run: node scripts/protected-native/finish.cjs
