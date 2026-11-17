@@ -52,6 +52,8 @@ function validateGates(files, platform) {
     if (gate === 'desktop-focused') {
       assert(inventory.selectedTestSkipPattern === '^native Electron zoom100/106/125 keeps the Mac footer aligned$');
       assert(events.filter(e => e.type === 'test:pass' && String(e.file || '').endsWith('widgets-edit-navigation.test.mjs')).length === 25);
+      assert(inventory.selected.includes('tests/dm-prompt-focus-ownership-browser.test.mjs'));
+      assert(events.filter(e => e.type === 'test:pass' && String(e.file || '').endsWith('dm-prompt-focus-ownership-browser.test.mjs')).length === 5);
     }
     if (gate === 'shipping-feature-focused') {
       assert(events.filter(e => e.type === 'test:pass' && String(e.file || '').endsWith('avatar-style-picker-browser.test.mjs')).length === 15);

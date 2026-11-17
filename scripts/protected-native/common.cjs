@@ -5,11 +5,11 @@ const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 
 const VERSION = '0.1.178';
-const SOURCE = '5be16ec47566c14ec00d968fb61c5c8ca45cd8e5';
+const SOURCE = '6ad20f42c193713f2ed22bf88cc1d956f9201178';
 const BASELINE = '15b7bd51c2df2390a9e8677179455ccb8fdcf534';
 const REPO = 'PinticeBTW/altara-updates';
-const SOURCE_TAG = 'ci-source-0.1.178-5be16ec-v3';
-const SOURCE_ASSET = 'altara-source-0.1.178-5be16ec-v3.tar.gz.enc';
+const SOURCE_TAG = 'ci-source-0.1.178-6ad20f4-v4';
+const SOURCE_ASSET = 'altara-source-0.1.178-6ad20f4-v4.tar.gz.enc';
 const COMMANDS_SHA = 'ebe41750e60f99ad5b6a34054c3aa979b78d6fd8fe554a7a3cb6ac8a211b942f';
 const MAX_FILE = 2 * 1024 ** 3;
 const sha256 = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
