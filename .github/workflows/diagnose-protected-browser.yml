@@ -1,0 +1,124 @@
+name: Diagnose protected browser timeouts
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Synthetic browser platforms to diagnose
+        type: choice
+        options: [all, windows, linux]
+        default: all
+      source_commit:
+        description: Immutable approved application source
+        type: string
+        required: true
+        default: 5be16ec47566c14ec00d968fb61c5c8ca45cd8e5
+      source_asset_id:
+        description: Encrypted source asset ID
+        type: string
+        required: true
+      source_cipher_sha256:
+        description: SHA-256 of encrypted source
+        type: string
+        required: true
+      source_archive_sha256:
+        description: SHA-256 of authenticated source archive
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-diagnostic-staging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      ALTARA_NATIVE_PLATFORM: ${{ inputs.platform == 'linux' && 'linux' || 'windows' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.18.0'
+      - name: Prepare unpublished diagnostic staging
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/protected-native/prepare-staging.cjs
+
+  windows-browser-diagnostic:
+    needs: prepare-diagnostic-staging
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'windows' }}
+    runs-on: windows-2022
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      ALTARA_NATIVE_PLATFORM: windows
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.18.0'
+      - name: Authenticate protected synthetic source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALTARA_CI_KEY: ${{ secrets.ALTARA_RELEASE_178_TRANSPORT_KEY }}
+        run: node scripts/protected-native/bootstrap.cjs
+      - name: Prepare protected browser prerequisite
+        run: node scripts/protected-native/diagnostics/browser-diagnostic-setup.cjs dependencies
+      - name: Prepare protected browser prerequisite
+        run: node scripts/protected-native/diagnostics/browser-diagnostic-setup.cjs example-dependencies
+      - name: Prepare protected browser prerequisite
+        run: node scripts/protected-native/diagnostics/browser-diagnostic-setup.cjs browser-fixtures
+      - name: Record unchanged synthetic browser repetitions
+        run: node scripts/protected-native/diagnostics/run-browser-diagnostics.cjs
+      - name: Preserve encrypted diagnostics without release eligibility
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALTARA_CI_KEY: ${{ secrets.ALTARA_RELEASE_178_TRANSPORT_KEY }}
+          ALTARA_JOB_STATUS: failure
+        run: node scripts/protected-native/finish.cjs
+
+  linux-browser-diagnostic:
+    needs: prepare-diagnostic-staging
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'linux' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      ALTARA_NATIVE_PLATFORM: linux
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.18.0'
+      - name: Authenticate protected synthetic source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALTARA_CI_KEY: ${{ secrets.ALTARA_RELEASE_178_TRANSPORT_KEY }}
+        run: node scripts/protected-native/bootstrap.cjs
+      - name: Prepare protected browser prerequisite
+        run: node scripts/protected-native/diagnostics/browser-diagnostic-setup.cjs dependencies
+      - name: Prepare protected browser prerequisite
+        run: node scripts/protected-native/diagnostics/browser-diagnostic-setup.cjs example-dependencies
+      - name: Prepare protected browser prerequisite
+        run: node scripts/protected-native/diagnostics/browser-diagnostic-setup.cjs browser-fixtures
+      - name: Record unchanged synthetic browser repetitions
+        run: node scripts/protected-native/diagnostics/run-browser-diagnostics.cjs
+      - name: Preserve encrypted diagnostics without release eligibility
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALTARA_CI_KEY: ${{ secrets.ALTARA_RELEASE_178_TRANSPORT_KEY }}
+          ALTARA_JOB_STATUS: failure
+        run: node scripts/protected-native/finish.cjs
