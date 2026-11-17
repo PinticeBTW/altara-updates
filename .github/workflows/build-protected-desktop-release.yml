@@ -12,7 +12,7 @@ on:
         description: Immutable approved application source commit
         type: string
         required: true
-        default: 089e6ce554aae34eabd216dc0ef642cc7764ab4e
+        default: 5be16ec47566c14ec00d968fb61c5c8ca45cd8e5
       source_asset_id:
         description: Encrypted source asset ID in the protected source draft
         type: string
