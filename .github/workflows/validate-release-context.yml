@@ -1,0 +1,40 @@
+name: Validate desktop release context
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft release tag
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  release-context:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.18.0
+      - name: Verify the updates repository and draft
+        shell: node {0}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          (async () => {
+            const repo = process.env.GITHUB_REPOSITORY, tag = process.env.RELEASE_TAG;
+            if (repo !== 'PinticeBTW/altara-updates' || !/^v\d+\.\d+\.\d+$/.test(tag || '')) throw Error('Invalid release context');
+            const result = await fetch(`https://api.github.com/repos/${repo}/releases/tags/${encodeURIComponent(tag)}`, {
+              headers: { Authorization: `Bearer ${process.env.GH_TOKEN}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
+            });
+            if (!result.ok) throw Error('Draft verification failed');
+            const release = await result.json();
+            if (release.draft !== true || release.prerelease !== false || release.tag_name !== tag) throw Error('Expected a stable draft release');
+            console.log(JSON.stringify({ repository: repo, tag, draft: true, platform: process.platform, architecture: process.arch }));
+          })().catch(() => { console.error('Release context validation failed.'); process.exitCode = 1; });
+
